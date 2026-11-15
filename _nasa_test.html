@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>NASA live data test</title>
+<style>body{background:#140c08;color:#f4f1ec;font-family:system-ui,"Segoe UI",Tahoma,sans-serif;padding:16px;max-width:720px;margin:auto}
+pre{direction:ltr;text-align:left;background:#0b0b10;padding:8px;border-radius:8px;overflow:auto;font-size:12px}
+#card{background:rgba(12,14,22,.92);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:14px 18px;line-height:1.7;margin:12px 0}</style></head>
+<body>
+<h2>اختبار بيانات ناسا (ملف اختبار، مش جزء من اللعبة)</h2>
+<div id="status">بنحمّل...</div>
+<h3>الكارت زي ما هيظهر على شاشة الروفر</h3>
+<div id="card"></div>
+<h3>كارت النهاية (OSDR)</h3>
+<div id="final" style="background:rgba(12,14,22,.92);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:14px 18px"></div>
+<h3>القيم اللي بتأثر على اللعبة</h3>
+<pre id="vals"></pre>
+<h3>الحالة الخام</h3>
+<pre id="raw"></pre>
+<script type="module">
+import { NASA } from './nasa-live.js';
+NASA.injectUI();
+const t0 = performance.now();
+const S = await NASA.init();
+document.getElementById('status').textContent = 'اتحمّل في ' + Math.round(performance.now() - t0) + ' ms. الحالة العامة: ' + NASA.overall();
+document.getElementById('card').innerHTML = NASA.cardHtml();
+document.getElementById('final').innerHTML = NASA.finalHtml();
+document.getElementById('vals').textContent = JSON.stringify({ stormRate: NASA.stormRate(), radiationBase: NASA.radiationBase(), intensity: NASA.stormIntensity(), weatherStatus: S.weather && S.weather.status, photoStatus: S.photo && S.photo.status }, null, 2);
+document.getElementById('raw').textContent = JSON.stringify({ weather: S.weather, photo: S.photo, iss: S.iss, osdr: S.osdr, key: S.key === 'DEMO_KEY' ? 'DEMO_KEY' : '(custom)' }, null, 2);
+window.__NASA = NASA;
+</script></body></html>

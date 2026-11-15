@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10 Days on Mars</title>
+<script type="importmap">
+{"imports":{
+  "three":"./vendor/three/build/three.module.js",
+  "three/addons/":"./vendor/three/examples/jsm/",
+  "three.quarks":"./vendor/quarks/three.quarks.esm.js",
+  "quarks.core":"./vendor/quarks/quarks.core.esm.js"
+}}
+</script>
+<script>if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)&&!/[?&]nosw/.test(location.search)) addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))   // offline cache: after one online visit the game runs with no internet</script>
+<style>
+:root{--panel:rgba(12,14,22,.78);--line:rgba(255,255,255,.14);--ink:#f4f1ec;--muted:#c9c1b6;--mars:#d8693a;--good:#58c98b;--bad:#e25a45}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#140c08;color:var(--ink);font-family:"Baloo Bhaijaan 2","Geeza Pro","Noto Sans Arabic",system-ui,sans-serif}
+#scene{position:fixed;inset:0}
+#clocks{position:fixed;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:none}
+.clock{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 14px;text-align:center;min-width:170px}
+.clock .k{font-size:12px;color:var(--muted)}
+.clock .v{font-size:19px;font-weight:700;letter-spacing:.5px}
+#objective{position:fixed;top:48px;right:12px;max-width:280px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 12px;font-size:16px;pointer-events:none;display:none}
+#objective .k{font-size:12px;color:var(--muted)}
+#meter{position:fixed;top:12px;left:12px;width:210px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 12px;pointer-events:none;display:none}
+#meter .k{font-size:12px;color:var(--muted)}
+.bar{height:10px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:4px}
+.fill{height:100%;border-radius:99px;transition:width .6s,background .6s}
+#cross{position:fixed;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid rgba(255,255,255,.8);border-radius:50%;pointer-events:none;display:none}
+#cross.on{border-color:#ffd08a;background:rgba(255,208,138,.35)}
+#hint{position:fixed;left:50%;top:calc(50% + 22px);transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px 12px;font-size:16px;white-space:nowrap;pointer-events:none;display:none}
+#say{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 14px;font-size:17px;line-height:1.6;pointer-events:none;display:none}
+#say .who{font-size:13px;font-weight:700;color:#ff8a70}
+#snd{position:fixed;bottom:104px;right:14px;z-index:6;font:inherit;font-size:14px;padding:5px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(12,14,22,.78);color:#f4f1ec;cursor:pointer}
+#redflash{position:fixed;inset:0;pointer-events:none;display:none;box-shadow:inset 0 0 150px 55px rgba(255,40,20,.6);animation:rf .7s infinite alternate}
+@keyframes rf{from{opacity:.2}to{opacity:.85}}
+#sub{position:fixed;bottom:44px;left:50%;transform:translateX(-50%);width:min(720px,calc(100% - 24px));text-align:center;font-size:22px;line-height:1.5;text-shadow:0 2px 8px #000,0 0 2px #000;pointer-events:none}
+#card{z-index:20;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,calc(100% - 24px));max-height:92vh;overflow:auto;background:rgba(12,14,22,.92);border:1px solid var(--line);border-radius:18px;padding:14px 18px;display:none;line-height:1.7}
+#card h3{margin:0 0 6px;font-size:20px}
+#card .src{font-size:12px;color:var(--muted);margin-top:6px}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .6s}
+#letterbox{position:fixed;inset:0;pointer-events:none;display:none}
+#letterbox:before,#letterbox:after{content:"";position:absolute;left:0;right:0;height:9vh;background:#000}
+#letterbox:before{top:0}#letterbox:after{bottom:0}
+#overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,5,3,.55);padding:16px}
+#overlay .box{background:rgba(12,14,22,.92);border:1px solid var(--line);border-radius:22px;padding:20px 24px;width:min(520px,100%);line-height:1.7;text-align:center}
+h1{font-size:32px;margin:4px 0}
+.btn{display:inline-block;font:inherit;font-weight:700;font-size:18px;padding:9px 26px;border-radius:12px;border:0;background:var(--mars);color:#fff;cursor:pointer;margin-top:10px}
+.btn.alt{background:#2a3044}
+.muted{color:var(--muted);font-size:14px}
+kbd{background:#2a3044;border-radius:6px;padding:0 6px;font-family:inherit;direction:ltr;display:inline-block}
+#skip{position:fixed;bottom:14px;left:14px;font:inherit;font-size:15px;padding:5px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:none;z-index:5}
+</style>
+</head>
+<body>
+<div id="scene"></div>
+<div id="letterbox"></div>
+<div id="clocks"></div>
+<div id="objective"></div>
+<div id="meter"></div>
+<div id="cross"></div>
+<div id="hint"></div>
+<div id="say"></div>
+<div id="sub"></div>
+<div id="card"></div>
+<div id="fade"></div>
+<div id="redflash"></div>
+<button id="skip">Skip</button>
+<div id="overlay"><div class="box"><h1>10 Days on Mars</h1><div class="muted" id="loadtxt">Loading…</div></div></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { BatchedRenderer, ParticleSystem, RenderMode } from 'three.quarks';
+import { ConstantValue, IntervalValue, ConstantColor, ColorOverLife, Gradient, Vector3 as QV3, Vector4 as QV4, SphereEmitter, PointEmitter, ApplyForce, SizeOverLife, PiecewiseBezier, Bezier } from 'quarks.core';
+// Simulation layer, SHADOW MODE: read-only, changes nothing in the game. Loaded dynamically and wrapped in try/catch
+// so that a missing file or a simulation error can never break the 3D experience.
+const SIM_STUB={tick(){},emit(){},reset(){},start(){}};
+let SIM=SIM_STUB, simDead=false;
+const NOSND={unlock(){},play(){},speak(){},mood(){},env(){},alarm(){},geiger(){},drip(){},toggleMute(){return true}};
+let AUDIO=NOSND;    // the sound system (audio.js); silent stand-in if it fails to load
+let MISSION=null;   // the 10-Sol mission layer (mission.js + mission-ui.js); if it fails to load, Day 1 still works on its own
+function simSafe(fn){ if(simDead) return; try{ fn() }catch(e){ simDead=true; console.warn('[sim] disabled after error',e) } }
+import('./sim-core.js').then(m=>{ SIM=m.SIM; let late=false; try{ late=(S.phase==='play') }catch(e){}  /* S may not exist yet */ if(late) simSafe(()=>{SIM.reset();SIM.start()}) }).catch(e=>{ simDead=true; console.warn('[sim] not loaded',e) });
+import { initI18n } from './i18n.js'; initI18n();   // English / Arabic switch (button at the top)
+import { NASA } from './nasa-live.js';   // live NASA data (DONKI, Perseverance photos) + saved copies (RadLab, OSDR). See nasa-live.js
+
+// =====================================================================
+// SETTINGS & REAL FACTS
+// =====================================================================
+const MISSION_SOLS=10, TRIP_DAYS=203;              // Perseverance: launched 30 Jul 2020, landed 18 Feb 2021 = 203 days
+const TIME_SCALE=60;                                // 1 real second = 1 minute of game time
+const JEZERO_EAST=77.4508;                          // Perseverance landing site
+const PANELS={
+  lead:{name:'Lead panel', color:0x5a616c, metal:0.7, rough:0.45, thick:1.0, power:0.25, level:'Weak',
+    result:'Lead is very heavy. When particles from the Sun hit it, it gives off secondary radiation inside the base.',
+    robot:'Not this one. Lead is too heavy. There is something lighter and better.'},
+  alu:{name:'Aluminium panel', color:0xc9ced6, metal:0.85, rough:0.3, thick:1.0, power:0.5, level:'Not enough',
+    result:'Aluminium stops some of the particles, but not enough. The base walls are already made of metal.',
+    robot:'Getting closer! But the answer is not another metal. Look for something with lots of hydrogen.'},
+  hdpe:{name:'Polyethylene panel (HDPE)', color:0xf1efe6, metal:0, rough:0.7, thick:3.0, power:0.75, level:'Strong', good:true,
+    result:'Polyethylene is a plastic with lots of hydrogen. It blocks particles from the Sun better than aluminium (NASA reports about 50% better). NASA has installed polyethylene panels in the crew sleeping quarters on the space station.',
+    robot:'That is it! Take the panels and install them on the outside wall of the base.'}
+};
+const SRC={rover:'NASA: Curiosity RAD, the solar storm of 20 May 2024', pe:'NASA Science (2005) · Berkeley Lab: polyethylene shielding'};
+
+// =====================================================================
+// HELPERS
+// =====================================================================
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t;
+const smooth=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)};
+function hashStr(s){let h=1779033703^s.length;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=h<<13|h>>>19}return h>>>0}
+function rng(seed){let a=hashStr(seed);return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const DEBUG=new URLSearchParams(location.search).has('debug');
+if(DEBUG){const raf=window.requestAnimationFrame.bind(window);window.requestAnimationFrame=cb=>{let d=false;const f=t=>{if(d)return;d=true;cb(t)};raf(f);setTimeout(()=>f(performance.now()),50);return 0}}
+
+// =====================================================================
+// MARS & EARTH CLOCKS (NASA GISS Mars24 algorithm)
+// =====================================================================
+const SOL_IN_DAYS=1.0274912517, TT_UTC=69.184;
+const jdTT=ms=>2440587.5+ms/864e5+TT_UTC/86400;
+const marsSolDate=ms=>(jdTT(ms)-2451549.5)/SOL_IN_DAYS+44796.0-0.0009626;
+const lmst=ms=>{const mst=((24*marsSolDate(ms))%24+24)%24; return ((mst-(360-JEZERO_EAST)/15)%24+24)%24};
+function nextLMST(fromMs,hour){let dh=(hour-lmst(fromMs)+24)%24; if(dh<1) dh+=24; return fromMs+dh*3600e3*SOL_IN_DAYS}
+const LANDING=nextLMST(Date.now(),7);                 // the real next moment it is 07:00 at Jezero
+const SOL1_START_MSD=marsSolDate(LANDING)-7/24;       // 00:00 of mission sol 1
+const SOL_MS=86400e3*SOL_IN_DAYS;                     // one Mars day in Earth milliseconds (24 h 39 m 35 s)
+const PLAY_CAP=LANDING+SOL_MS*(11/24);                // during play the clock never passes 18:00 Mars time
+const SOL_END=LANDING+SOL_MS;                         // day 1 ends when the next Mars morning (07:00) begins
+const CLK={ms:LANDING-TRIP_DAYS*864e5, onMars:false};
+const pad=n=>String(Math.floor(n)).padStart(2,'0');
+const earthFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',weekday:'long',day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+function marsSol(ms){return 1+Math.floor(marsSolDate(ms)-SOL1_START_MSD)}
+function drawClocks(){
+  const h=lmst(CLK.ms);
+  const mars=CLK.onMars?`Day ${Math.min(MISSION_SOLS,marsSol(CLK.ms))} of ${MISSION_SOLS} · ${pad(h)}:${pad((h%1)*60)}`:'On the way to Mars';
+  $('clocks').innerHTML=`<div class="clock"><div class="k">Mars clock (Jezero)</div><div class="v">${mars}</div></div><div class="clock"><div class="k">Earth clock (Cairo)</div><div class="v">${earthFmt.format(new Date(CLK.ms))}</div></div>`;
+}
+
+// =====================================================================
+// RENDERER, SCENE, READY-MADE LIGHTING (HDRI)
+// =====================================================================
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:DEBUG});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
+renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+$('scene').appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,0.05,3000); scene.add(camera);
+const manager=new THREE.LoadingManager(); manager.onProgress=(u,l,t)=>{const el=$('loadtxt'); if(el) el.textContent='Loading… '+Math.round(l/t*100)+'%'};
+async function loadLighting(){
+  // Ready-made lighting: a Poly Haven HDRI (CC0) lights the whole scene and draws the sky.
+  // Default "Qwantani Dusk 2 (Pure Sky)" has no Earth landscape in it; ?sky=fire uses "The Sky Is On Fire".
+  const fire=new URLSearchParams(location.search).get('sky')!=='pure';
+  const hdr=await new HDRLoader(manager).loadAsync('assets/hdri/'+(fire?'the_sky_is_on_fire_1k.hdr':'qwantani_dusk_2_puresky_1k.hdr'));
+  hdr.mapping=THREE.EquirectangularReflectionMapping;
+  scene.environment=hdr; scene.background=hdr; scene.environmentIntensity=1.2;
+  scene.backgroundBlurriness=fire?0.38:0.05; scene.backgroundIntensity=fire?0.95:1.0;   // heavy blur hides the Earth details in that photo
+  scene.fog=new THREE.Fog(fire?0xc98f78:0xcfc4c8,60,280);
+}
+
+// =====================================================================
+// REAL MARS TERRAIN (HiRISE DTM + ortho of Jezero, via USGS)
+// =====================================================================
+const N=257, SIZE=600; let HEIGHTS=null;
+function heightAt(x,z){ if(!HEIGHTS) return 0; const fx=(x+SIZE/2)/SIZE*(N-1), fz=(z+SIZE/2)/SIZE*(N-1);
+  const c=clamp(Math.floor(fx),0,N-2), r=clamp(Math.floor(fz),0,N-2), tx=fx-c, tz=fz-r, h=(a,b)=>HEIGHTS[a*N+b];
+  return lerp(lerp(h(r,c),h(r,c+1),tx),lerp(h(r+1,c),h(r+1,c+1),tx),tz); }
+async function buildTerrain(){
+  const [buf,tex]=await Promise.all([fetch('assets/terrain/jezero_height.bin').then(r=>r.arrayBuffer()),new THREE.TextureLoader(manager).loadAsync('assets/terrain/jezero_ortho.jpg')]);
+  const H=new Float32Array(buf), c0=H[128*N+128], geo=new THREE.PlaneGeometry(SIZE,SIZE,N-1,N-1); geo.rotateX(-Math.PI/2);
+  const pos=geo.attributes.position; HEIGHTS=new Float32Array(N*N);
+  for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i);const h=(H[i]-c0)*smooth(30,55,Math.hypot(x,z));HEIGHTS[i]=h;pos.setY(i,h)}
+  geo.computeVertexNormals();
+  const img=tex.image, cv=document.createElement('canvas'); cv.width=img.width; cv.height=img.height; const cx=cv.getContext('2d');
+  cx.fillStyle='#9a9a9a'; cx.fillRect(0,0,cv.width,cv.height); cx.globalAlpha=0.6; cx.drawImage(img,0,0);
+  const soft=new THREE.CanvasTexture(cv); soft.colorSpace=THREE.SRGBColorSpace; soft.anisotropy=renderer.capabilities.getMaxAnisotropy();
+  scene.add(new THREE.Mesh(geo,new THREE.MeshStandardMaterial({map:soft,color:0xffb27c,roughness:1})));
+  // a wide ground ring under the edges of the real terrain so you never see past the end of the map
+  let minH=0; for(const h of HEIGHTS) minH=Math.min(minH,h);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(SIZE*0.42,1700,96,1).rotateX(-Math.PI/2),new THREE.MeshStandardMaterial({color:0xc08a62,roughness:1})); ring.position.y=minH-0.4; scene.add(ring);
+}
+
+// =====================================================================
+// MODELS (all Quaternius, CC0, one matching style)
+// =====================================================================
+const gltfLoader=new GLTFLoader(manager); const load=f=>gltfLoader.loadAsync('assets/models/'+f+'.glb');
+function normalize(root,{height,width}={}){
+  root.traverse(o=>{ if(o.isMesh&&o.material){ o.material=o.material.clone(); } });
+  const box=new THREE.Box3(); root.updateMatrixWorld(true);
+  root.traverse(o=>{ if(o.isMesh){ o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)) } });
+  const s=box.getSize(new THREE.Vector3()), k=height?height/s.y:width?width/Math.max(s.x,s.z):1, c=box.getCenter(new THREE.Vector3()), p=root.position.clone();
+  root.scale.multiplyScalar(k); root.position.set(k*(p.x-c.x),k*(p.y-box.min.y),k*(p.z-c.z));
+  const wrap=new THREE.Group(); wrap.add(root); return wrap;
+}
+function put(o,x,z,rot=0,y){o.position.set(x,y??heightAt(x,z),z);o.rotation.y=rot;scene.add(o);return o}
+let KIT=null;
+// The Sci-Fi Kit file stores its pieces under a rotated parent (Z-up export), so each clone keeps the parent's
+// world rotation/scale; only its position is reset.
+function kitClone(name){
+  const src=KIT.getObjectByName(name); if(!src){console.warn('kit piece missing',name);return null}
+  KIT.updateMatrixWorld(true); const q=new THREE.Quaternion(), s=new THREE.Vector3(); src.getWorldQuaternion(q); src.getWorldScale(s);
+  const c=src.clone(true); c.position.set(0,0,0); c.quaternion.copy(q); c.scale.copy(s); return c;
+}
+function kit(name,x,z,rot=0,y=0,scale=1){
+  const c=kitClone(name); if(!c) return new THREE.Group(); c.scale.multiplyScalar(scale);
+  const w=normalize(c); w.position.set(x,y,z); w.rotation.y=rot; scene.add(w);
+  if(/Wall|Roof|Column/.test(name)) w.traverse(o=>{ if(o.isMesh) o.material.side=THREE.DoubleSide });   // kit walls are one-sided; make them solid from outside too
+  if(/Wall/.test(name)){ w.userData.occ=true; OCC.push(w) }
+  return w;
+}
+
+// =====================================================================
+// COLLISION
+// =====================================================================
+const BOXES=[], CIRCLES=[];
+const wallBox=(x0,x1,z0,z1)=>BOXES.push({x0,x1,z0,z1});
+const circ=(x,z,r)=>CIRCLES.push({x,z,r});
+function collide(p){
+  for(const c of CIRCLES){const dx=p.x-c.x,dz=p.z-c.z,d=Math.hypot(dx,dz),m=c.r+0.3; if(d<m&&d>1e-4){p.x=c.x+dx/d*m;p.z=c.z+dz/d*m}}
+  for(const b of BOXES){ if(b.off) continue; const x0=b.x0-0.3,x1=b.x1+0.3,z0=b.z0-0.3,z1=b.z1+0.3;
+    if(p.x>x0&&p.x<x1&&p.z>z0&&p.z<z1){ const dl=p.x-x0,dr=x1-p.x,dn=p.z-z0,ds=z1-p.z,m=Math.min(dl,dr,dn,ds);
+      if(m===dl)p.x=x0; else if(m===dr)p.x=x1; else if(m===dn)p.z=z0; else p.z=z1; } }
+  const r=Math.hypot(p.x,p.z); if(r>70){p.x*=70/r;p.z*=70/r}
+}
+
+// =====================================================================
+// PARTICLES (three.quarks particle system + Kenney Particle Pack textures)
+// =====================================================================
+const batch=new BatchedRenderer(); scene.add(batch);
+const PTEX={}; const texLoader=new THREE.TextureLoader(manager);
+async function loadParticleTextures(){ for(const n of ['spark_04','star_06','flare_01','smoke_05','smoke_08','twirl_01','magic_03','light_01']) PTEX[n]=await texLoader.loadAsync('assets/particles/'+n+'.png') }
+function makeFX({tex,max=300,rate=20,life=[1,2],speed=[1,2],size=[0.3,0.6],color=[1,1,1,1],radius=1,force=null,additive=true,stretch=false,fade=[[0,0],[1,0.15],[1,0.7],[0,1]],grow=null,pos=[0,0,0]}){
+  const ps=new ParticleSystem({
+    duration:1, looping:true, worldSpace:true, maxParticle:max,
+    startLife:new IntervalValue(life[0],life[1]), startSpeed:new IntervalValue(speed[0],speed[1]),
+    startSize:new IntervalValue(size[0],size[1]), startColor:new ConstantColor(new QV4(...color)),
+    emissionOverTime:new ConstantValue(rate),
+    shape:radius>0?new SphereEmitter({radius}):new PointEmitter(),
+    material:new THREE.MeshBasicMaterial({map:PTEX[tex],transparent:true,depthWrite:false,blending:additive?THREE.AdditiveBlending:THREE.NormalBlending}),
+    renderMode:stretch?RenderMode.StretchedBillBoard:RenderMode.BillBoard, speedFactor:stretch?0.12:undefined
+  });
+  ps.addBehavior(new ColorOverLife(new Gradient([[new QV3(1,1,1),0],[new QV3(1,1,1),1]],fade)));
+  if(grow) ps.addBehavior(new SizeOverLife(new PiecewiseBezier([[new Bezier(grow[0],grow[0],grow[1],grow[1]),0]])));
+  if(force) ps.addBehavior(new ApplyForce(new QV3(...force[0]),new ConstantValue(force[1])));
+  ps.emitter.position.set(...pos); scene.add(ps.emitter); batch.addSystem(ps); ps.__rate=rate; return ps;
+}
+const setRate=(ps,r)=>{ps.emissionOverTime=new ConstantValue(r)};
+const FX={};
+
+// =====================================================================
+// WORLD
+// =====================================================================
+const BASE={x:0,z:-2,w:12,d:8,h:4.43};  // base footprint (x∈[-6,6], z∈[-6,2])
+const W={}; const INTER=[];
+const interactive=(o,it)=>{o.userData.it=it;INTER.push(o);return o};
+async function buildWorld(){
+  await buildTerrain();
+  const names=['robot','astronaut','rover','base_large','scifi_kit','spaceship','solar_panel','rocks','rock_large'];
+  const G={}; await Promise.all(names.map(async n=>{G[n]=await load(n)}));
+  KIT=G.scifi_kit.scene;
+  buildBase();
+  // rover with radiation detector
+  W.rover=put(normalize(G.rover.scene,{height:2.4}),6,9,-2.5); circ(6,9,2.0); interactive(W.rover,{kind:'rover'});
+  // landed ship, solar panels, storage dome, rocks
+  W.ship=put(normalize(G.spaceship.scene,{width:9}),-17,13,0.6); circ(-17,13,4.2);
+  W.solar=[[9,-12],[13.5,-9.5],[9,-17]].map(([x,z],i)=>{const p=normalize(i?G.solar_panel.scene.clone(true):G.solar_panel.scene,{width:4.2});put(p,x,z,0.5);circ(x,z,2.2);return p});
+  W.dome=put(normalize(G.base_large.scene,{width:8}),-14,-8,0.3); circ(-14,-8,4.2);
+  const rr=rng('rocks'), RS=G.rock_large.scene;
+  for(let i=0;i<60;i++){const a=rr()*Math.PI*2,d=24+rr()*80,x=Math.cos(a)*d,z=Math.sin(a)*d,big=rr()<0.18;
+    put(normalize((big?RS:G.rocks.scene).clone(true),{width:big?1.6+rr()*3:0.7+rr()*1.4}),x,z,rr()*6).position.y-=0.12}
+  // astronaut (the player), only visible in cutscenes
+  W.astro=normalize(G.astronaut.scene,{height:1.8}); W.astro.traverse(o=>{if(/Gun|Sword|Pistol|Knife/i.test(o.name)) o.visible=false});
+  W.astroMixer=new THREE.AnimationMixer(W.astro.children[0]); W.astroAct={}; for(const c of G.astronaut.animations) W.astroAct[c.name.split('|').pop()]=W.astroMixer.clipAction(c);
+  put(W.astro,-14,12,1.5); W.astro.visible=false;
+  // Gaid the guide robot
+  W.robot=normalize(G.robot.scene,{height:1.35}); W.robotMixer=new THREE.AnimationMixer(W.robot.children[0]); W.robotAct={};
+  for(const c of G.robot.animations) W.robotAct[c.name.replace('Robot_','')]=W.robotMixer.clipAction(c);
+  put(W.robot,-1.2,-1.4,0.2,0); interactive(W.robot,{kind:'robot'}); circ(-1.2,-1.4,0.6); robotPlay('Idle');
+  buildParticles();
+  await loadHDU();
+}
+// ---- P1 (habitat expansion): NASA HDU used as the EXTERIOR HULL only (no rooms, doors or interior yet). ----
+// The GLB is Draco-compressed, so Draco support is attached to the shared gltfLoader. It is loaded in a try/catch with a timeout:
+// if the decoder (jsDelivr) or the file is unavailable, the game runs exactly as before. Add ?hdu=off to skip it.
+const HDU_POSE={x:-6,z:-22,yaw:Math.PI,scale:0.10,sill:36};   // staging pose, tube pointing west; sill = hatch-sill height in model units (floor level will sit at y=0)
+async function loadHDU(){
+  if(new URLSearchParams(location.search).get('hdu')==='off') return;
+  const t0=performance.now();
+  try{
+    const work=(async()=>{
+      const {DRACOLoader}=await import('three/addons/loaders/DRACOLoader.js');
+      const dr=new DRACOLoader(manager); dr.setDecoderPath('./vendor/three/examples/jsm/libs/draco/gltf/');
+      gltfLoader.setDRACOLoader(dr);
+      return load('hdu');
+    })();
+    const g=await Promise.race([work,new Promise((_,rej)=>setTimeout(()=>rej(new Error('HDU load timeout')),20000))]);
+    // The GLB's glass uses KHR_materials_transmission, which makes three.js render the whole scene a second time every frame
+    // (measured: ~2.1x draw calls and triangles). Turned off by default; add ?hdutrans=1 to compare. The hull is otherwise a single cheap mesh.
+    if(new URLSearchParams(location.search).get('hdutrans')!=='1') g.scene.traverse(o=>{ if(o.isMesh&&o.material) o.material.transmission=0 });
+    const P=HDU_POSE, hull=new THREE.Group(); hull.add(g.scene);
+    hull.scale.setScalar(P.scale); hull.rotation.y=P.yaw; hull.position.set(P.x,-P.sill*P.scale,P.z); scene.add(hull); W.hdu=hull;
+    // simple collision so the player cannot walk into the shell: cylinder (R 83 u) + tube (half-width 44.5 u, from the cylinder to x=238 u)
+    const s=P.scale, R=83*s; circ(P.x,P.z,R);
+    const c=Math.cos(P.yaw), sn=Math.sin(P.yaw), pts=[[R,-44.5*s],[238*s,-44.5*s],[R,44.5*s],[238*s,44.5*s]].map(([lx,lz])=>[P.x+lx*c+lz*sn,P.z-lx*sn+lz*c]);
+    wallBox(Math.min(...pts.map(p=>p[0])),Math.max(...pts.map(p=>p[0])),Math.min(...pts.map(p=>p[1])),Math.max(...pts.map(p=>p[1])));
+    W.hduInfo={loadMs:Math.round(performance.now()-t0),pose:P};
+  }catch(e){ console.warn('[hdu] not loaded, game continues without it:',e) }
+}
+function animPlay(mixer,acts,name,state,once=false){const a=acts[name]||acts.Idle; if(!a||state.cur===a) return; a.reset(); a.setLoop(once?THREE.LoopOnce:THREE.LoopRepeat); a.clampWhenFinished=once; a.fadeIn(0.25).play(); if(state.cur) state.cur.fadeOut(0.25); state.cur=a}
+const RS_={},AS_={};
+const robotPlay=(n,once)=>animPlay(W.robotMixer,W.robotAct,n,RS_,once);
+const astroPlay=(n,once)=>animPlay(W.astroMixer,W.astroAct,n,AS_,once);
+
+function buildBase(){
+  const {x:bx,z:bz}=BASE, X0=bx-6, Z0=bz-4;
+  // floor & roof (2 m tiles)
+  for(let i=0;i<6;i++) for(let j=0;j<4;j++){ const x=X0+1+i*2, z=Z0+1+j*2; kit((i+j)%3?'FloorTile_Basic':'FloorTile_Basic2',x,z,0,0.0); kit(['RoofTile_Empty','RoofTile_Vents','RoofTile_Plate','RoofTile_Details'][(i*7+j)%4],x,z,0,BASE.h); }
+  // walls (4 m pieces) — north
+  kit('Wall_1',bx-4,Z0,0); kit('Wall_3',bx,Z0,0); kit('Wall_2',bx+4,Z0,0); wallBox(X0-0.3,X0+12.3,Z0-0.3,Z0+0.3);
+  // south: plain wall, door, plain wall (the shield mounts go on these two plain walls)
+  kit('Wall_Empty',bx-4,Z0+8,Math.PI); W.doorWall=kit('DoorSingle_Wall_SideB',bx,Z0+8,Math.PI); kit('Wall_Empty',bx+4,Z0+8,Math.PI);
+  wallBox(X0-0.3,bx-0.95,Z0+7.7,Z0+8.3); wallBox(bx+0.95,X0+12.3,Z0+7.7,Z0+8.3);
+  // west & east
+  W.winW=kit('Window_Wall_SideB',X0,bz-2,Math.PI/2); kit('Wall_4',X0,bz+2,Math.PI/2); wallBox(X0-0.3,X0+0.3,Z0,Z0+8);
+  W.winE=kit('ThreeWindows_Wall_SideB',X0+12,bz-2,-Math.PI/2); kit('Wall_5',X0+12,bz+2,-Math.PI/2); wallBox(X0+11.7,X0+12.3,Z0,Z0+8);
+  for(const [x,z] of [[X0,Z0],[X0+12,Z0],[X0,Z0+8],[X0+12,Z0+8]]) kit('Column_1',x,z,0);
+  // inside: sleeping pods behind the south wall, shelves, crates with the three kinds of panels, the test machine
+  W.pod1=kit('Props_Pod',X0+1.3,Z0+6.6,Math.PI); W.pod2=kit('Props_Pod',X0+3.3,Z0+6.6,Math.PI); circ(X0+1.3,Z0+6.6,1.0); circ(X0+3.3,Z0+6.6,1.0);
+  W.shelfL=kit('Props_Shelf_Tall',bx-3.6,Z0+0.6,0); W.shelfM=kit('Props_Shelf',bx+0.4,Z0+0.6,0); W.shelfR=kit('Props_Shelf_Tall',bx+3.6,Z0+0.6,0);
+  W.container=kit('Props_ContainerFull',X0+11,Z0+7,Math.PI/2); W.vesselT=kit('Props_Vessel_Tall',X0+11.3,Z0+5.6,0); W.vessel=kit('Props_Vessel',X0+11.3,Z0+5.1,0);
+  W.crates={};
+  [['lead',bx-3.6],['alu',bx-1.2],['hdpe',bx+1.2]].forEach(([k,x])=>{ const cr=kit('Props_Crate',x,Z0+1.9,0); circ(x,Z0+1.9,0.6);
+    const stack=new THREE.Group(); for(let i=0;i<3;i++){const p=makePanel(k); p.rotation.x=-Math.PI/2; p.position.y=0.82+i*0.06*PANELS[k].thick; stack.add(p)} stack.position.set(x,0,Z0+1.9); scene.add(stack);
+    W.crates[k]={crate:cr,stack,count:3}; interactive(cr,{kind:'crate',k}); interactive(stack,{kind:'crate',k}); });
+  // test machine (computer + pad)
+  W.testPad=kit('Props_Base',X0+9.8,bz-0.4,0); W.testPc=kit('Props_Computer',X0+11.2,bz-0.4,-Math.PI/2); circ(X0+11.2,bz-0.4,0.5);
+  interactive(W.testPad,{kind:'tester'}); interactive(W.testPc,{kind:'tester'});
+  // three shield mounts on the outside of the south wall (in front of the sleeping pods)
+  W.mounts=[[bx-5.0,Z0+8.42],[bx-3.0,Z0+8.42],[bx+4.0,Z0+8.42]].map(([x,z],i)=>{ const g=new THREE.Group();
+    const ghost=makePanel('hdpe'); ghost.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=0.35;o.material.emissive=new THREE.Color(0xffa040);o.material.emissiveIntensity=0.8}});
+    ghost.scale.setScalar(1.25); g.add(ghost); g.userData.ghost=ghost; g.position.set(x,1.0,z);
+    // an invisible, slightly bigger box so the mount is easy to click
+    const hit=new THREE.Mesh(new THREE.BoxGeometry(1.7,1.7,0.5),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false})); hit.position.y=0.65; g.add(hit);
+    scene.add(g); interactive(g,{kind:'mount',i,filled:false}); return g });
+  // the door opening (a trigger, not a solid)
+  W.doorTrigger={x:bx,z:Z0+8};
+  // the base door: a sliding plate (existing kit plate) on the outside of the door opening. Locked until ORBI opens it in the story, then automatic.
+  W.door={open:0,locked:true,force:null,box:{x0:bx-0.95,x1:bx+0.95,z0:Z0+7.75,z1:Z0+8.45,off:false}};
+  const dl=makePanel('alu'); dl.scale.set(2.2,3.0,1); dl.position.set(bx,1.5,Z0+8.33); scene.add(dl); W.door.leaf=dl; BOXES.push(W.door.box);
+}
+function makePanel(k){
+  // panel = the Sci-Fi Kit "Details_Plate_Large" piece, re-coloured per material (same style as the rest)
+  const P=PANELS[k], c=kitClone('Details_Plate_Large');
+  const w=normalize(c,{width:1.0}); const inner=new THREE.Group(); w.add(inner); inner.add(w.children[0]); inner.scale.z=P.thick;
+  w.traverse(o=>{if(o.isMesh){o.material=new THREE.MeshStandardMaterial({color:P.color,metalness:P.metal,roughness:P.rough})}});
+  w.userData.k=k; return w;
+}
+function buildParticles(){
+  // solar storm: sparks falling around (not inside) the base
+  FX.storm=[[16,-2],[-16,-2],[0,16],[0,-20],[12,14],[-12,16]].map(([x,z])=>makeFX({tex:'spark_04',max:500,rate:40,life:[1.2,1.8],speed:[0,1],size:[0.25,0.5],color:[1,0.72,0.35,1],radius:7,force:[[-0.25,-1,0.15],38],stretch:true,pos:[x,34,z]}));
+  FX.dust=makeFX({tex:'smoke_05',max:120,rate:8,life:[6,9],speed:[0.3,0.8],size:[3,6],color:[0.85,0.55,0.35,0.12],radius:25,additive:true,pos:[0,1.5,8],force:[[1,0,0.2],0.3]});
+  FX.alarm=makeFX({tex:'flare_01',max:20,rate:2.5,life:[0.6,0.8],speed:[0,0],size:[1.4,1.8],color:[1,0.25,0.15,1],radius:0,pos:[6,3.2,9]});
+  FX.test=makeFX({tex:'twirl_01',max:80,rate:0,life:[0.8,1.2],speed:[0.5,1.2],size:[0.5,0.9],color:[0.6,0.85,1,1],radius:0.6,pos:[BASE.x+3.8,1.0,BASE.z-0.4],force:[[0,1,0],2]});
+  FX.install=makeFX({tex:'star_06',max:60,rate:0,life:[0.5,0.9],speed:[1,2.5],size:[0.3,0.6],color:[1,0.85,0.55,1],radius:0.4,pos:[0,1.7,2.4]});
+  FX.land=makeFX({tex:'smoke_08',max:120,rate:0,life:[1.5,2.5],speed:[2,5],size:[2,4],color:[0.8,0.55,0.38,0.3],radius:3,additive:true,pos:[-17,0.5,13],grow:[0.6,1.4]});   // the particle textures have opaque black backgrounds, so they must be additive
+  // Day 1 story effects (particles only): the dust storm (separate from the radiation event), crash debris, smoke from the damaged ship
+  FX.dust2=makeFX({tex:'smoke_05',max:360,rate:0,life:[3,5],speed:[2,4],size:[2.5,5],color:[0.6,0.36,0.2,0.1],radius:22,additive:true,pos:[0,1.5,0],force:[[1,0.05,0.25],3]});
+  FX.debris=makeFX({tex:'spark_04',max:200,rate:0,life:[1.0,1.8],speed:[0,2],size:[0.2,0.45],color:[1,0.6,0.25,1],radius:5,force:[[0,-1,0],30],stretch:true,pos:[-17,14,13]});
+  FX.drip=makeFX({tex:'spark_04',max:60,rate:0,life:[0.6,0.9],speed:[0,0.3],size:[0.1,0.18],color:[0.4,0.75,1,1],radius:0.12,force:[[0,-1,0],9],stretch:true,pos:[5.3,1.1,-0.9]});   // water drips from the leaking pipe (Sol 3)
+  FX.smoke=makeFX({tex:'smoke_08',max:120,rate:0,life:[2.5,4],speed:[0.5,1.2],size:[1.5,3],color:[0.55,0.5,0.46,0.22],radius:1,additive:true,force:[[0.3,1,0],1.2],pos:[-17,3,13]});
+}
+let bursts=[];
+function burst(ps,rate,secs,at){ if(at) ps.emitter.position.copy(at); setRate(ps,rate); bursts.push({ps,until:T.now+secs}) }
+
+// =====================================================================
+// GAME STATE
+// =====================================================================
+// act = the Day 1 story stage: intro (cutscenes) > follow > emergency > explore (30 s) > rover (message) > suit (the original material challenge, S.step 2-4) > done
+const S={phase:'loading',step:0,held:null,tested:{},installed:0,inside:0.9,insideBase:0.9,hintAt:0,ended:false,
+  act:'intro',q:[],exploreEnd:0,lastSec:-1,flicker:false,dust:false,radOn:false,robotPath:null};
+const T={now:0};
+const STEPS=['Check the rover','Enter the base','Test the panels on the test machine','Take the HDPE panels and install them on the outside wall by the door','Go back inside the base'];
+const EXPLORE_SECONDS=30;
+function objective(){ const o=$('objective'); if(S.phase!=='play'){o.style.display='none';return}
+  if(MISSION&&MISSION.active()){ MISSION.renderObjective(); return }
+  const a=S.act; let line;
+  if(a==='follow') line='Follow ORBI to the base';
+  else if(a==='emergency') line='Stay close to ORBI';
+  else if(a==='explore') line=`Explore the base · ${Math.max(0,Math.ceil(S.exploreEnd-T.now))} s`;
+  else if(a==='rover') line='Incoming message from the rover…';
+  else line=STEPS[S.step]+(S.step===3?` (${S.installed}/3)`:'');
+  o.style.display='block'; o.innerHTML=`<div class="k">Day 1 · Hard Landing</div>${line}`; }
+function meter(){ const m=$('meter'); if((S.phase!=='play'&&S.phase!=='end')||!S.radOn){m.style.display='none';return}
+  const v=S.inside, col=v>0.6?'var(--bad)':v>0.3?'#e2a845':'var(--good)';
+  m.style.display='block'; m.innerHTML=`<div class="k">Radiation inside the base</div><div class="bar"><div class="fill" style="width:${Math.round(v*100)}%;background:${col}"></div></div>`; }
+let sayT=null;
+const PN=s=>String(s).replace(/Toby/g,(window.CANTRIC_PLAYER&&window.CANTRIC_PLAYER.name)||'Toby');   // astronaut name entered in the intro (default Toby)
+function say(text,who='ORBI',ms=7000){ const el=$('say'); el.innerHTML=`<div class="who">${PN(who)}</div>${PN(text)}`; el.style.display='block'; AUDIO.speak(text.length,who); clearTimeout(sayT); sayT=setTimeout(()=>el.style.display='none',ms) }
+function card(title,body,src,btn='OK',onClose){ modal=true; plc.unlock(); AUDIO.play('card'); const el=$('card');
+  el.innerHTML=`<h3>${title}</h3><div>${body}</div>${src?`<div class="src">Source: ${src}</div>`:''}<div style="text-align:center"><button class="btn" id="cardOk">${btn}</button></div>`; el.style.display='block';
+  $('cardOk').onclick=()=>{el.style.display='none'; modal=false; if(onClose) onClose(); lock()} }
+
+// =====================================================================
+// FIRST-PERSON PLAYER
+// =====================================================================
+const plc=new PointerLockControls(camera,renderer.domElement); const keys={}; let modal=false, dragMode=true, drag=null, bob=0, walk=null; const LOOK=new THREE.Euler(0,0,0,'YXZ');   // dragMode=true: no pointer lock. Tap/click to walk, drag to look (easier for kids than WASD)
+addEventListener('keydown',e=>{keys[e.code]=true; if(e.code==='Space'&&S.phase==='cut') skipCut(); if(S.phase!=='play') return; if(e.code==='KeyE') use(); if(e.code==='KeyQ') drop(); if(e.code==='KeyH'&&MISSION&&!modal) MISSION.ask()});
+addEventListener('keyup',e=>{keys[e.code]=false});
+document.addEventListener('pointerlockerror',()=>{dragMode=true});
+function lock(){ if(dragMode||S.phase!=='play') return; try{const p=plc.lock(); if(p&&p.catch) p.catch(()=>{dragMode=true})}catch(e){dragMode=true} }
+renderer.domElement.addEventListener('pointerdown',e=>{ if(S.phase!=='play'||modal) return; if(dragMode){drag={x:e.clientX,y:e.clientY,m:0};return} if(!plc.isLocked){lock();return} if(e.button===0) use() });
+addEventListener('pointermove',e=>{ if(!dragMode||!drag) return; const dx=e.clientX-drag.x,dy=e.clientY-drag.y; drag.x=e.clientX; drag.y=e.clientY; drag.m+=Math.abs(dx)+Math.abs(dy);
+  LOOK.setFromQuaternion(camera.quaternion); LOOK.y-=dx*0.005; LOOK.x=clamp(LOOK.x-dy*0.005,-1.4,1.4); camera.quaternion.setFromEuler(LOOK) });
+addEventListener('pointerup',e=>{ if(!dragMode||!drag) return; if(drag.m<6&&S.phase==='play'&&!modal) tapAt(e.clientX,e.clientY); drag=null });
+// ---- tap / click to move: tap the floor to walk there, tap a thing to walk to it and use it ----
+const tapRay=new THREE.Raycaster(); tapRay.far=80;
+const tapMark=new THREE.Mesh(new THREE.RingGeometry(0.28,0.42,28),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.85,depthWrite:false,side:THREE.DoubleSide})); tapMark.rotation.x=-Math.PI/2; tapMark.visible=false; scene.add(tapMark);
+function tapAt(cx,cy){
+  tapRay.setFromCamera(new THREE.Vector2(cx/innerWidth*2-1,-(cy/innerHeight)*2+1),camera);
+  let obj=null; for(const h of tapRay.intersectObjects([...INTER,...OCC],true)){ let o=h.object; while(o&&!o.userData.it&&!o.userData.occ) o=o.parent; if(!o) continue; if(o.userData.occ&&!o.userData.it) break; if(o.visible){obj=o;break} }
+  if(S.riding){ if(obj){ target=obj; use() } return }
+  if(obj){ const w=obj.getWorldPosition(new THREE.Vector3()); walk={x:w.x,z:w.z,obj,reach:2.4,stage:0,still:0}; tapMark.position.set(w.x,0.05,w.z); tapMark.visible=true; return }
+  const d=tapRay.ray.direction, o0=tapRay.ray.origin; if(d.y>-0.02) return; const t=-o0.y/d.y, gx=o0.x+d.x*t, gz=o0.z+d.z*t; if(Math.hypot(gx,gz)>66) return;
+  walk={x:gx,z:gz,obj:null,reach:0.3,stage:0,still:0}; tapMark.position.set(gx,0.05,gz); tapMark.visible=true;
+}
+function walkStep(dt){
+  if(!walk) return; if(S.phase!=='play'||modal||k('KeyW')||k('KeyA')||k('KeyS')||k('KeyD')||k('ArrowUp')||k('ArrowDown')||k('ArrowLeft')||k('ArrowRight')){ walk=null; tapMark.visible=false; return }
+  const p=camera.position, goalIn=isInside({x:walk.x,z:walk.z}), meIn=isInside(p); let tx=walk.x, tz=walk.z;
+  if(goalIn!==meIn){   // between outside and inside the way goes through the door (from outside, first step away from the wall so we never scrape along it)
+    if(walk.sx===undefined) walk.sx=p.x;
+    const pts=meIn?[[0,0.9],[0,3.7]]:[[Math.max(-9,Math.min(9,walk.sx)),4.4],[0,3.7],[0,0.9]];
+    while(walk.stage<pts.length&&Math.hypot(p.x-pts[walk.stage][0],p.z-pts[walk.stage][1])<0.5) walk.stage++;
+    if(walk.stage<pts.length){ tx=pts[walk.stage][0]; tz=pts[walk.stage][1] } }
+  if(!meIn&&!goalIn){   // outside to outside: if the straight line would cut through the base, walk around its nearest corner first
+    const hits=(ax,az,bx,bz)=>{ for(let i=1;i<=16;i++){ const x=ax+(bx-ax)*i/16, z=az+(bz-az)*i/16; if(x>-6.5&&x<6.5&&z>-6.5&&z<1.9) return true } return false };
+    if(walk.via===undefined){ walk.via=false; if(hits(p.x,p.z,walk.x,walk.z)){ let best=1e9; for(const c of [[-7.4,3.5],[7.4,3.5],[-7.4,-7.4],[7.4,-7.4],[Math.max(-9,Math.min(9,p.x)),4.2]]){ if(hits(p.x,p.z,c[0],c[1])||hits(c[0],c[1],walk.x,walk.z)) continue; const l=Math.hypot(p.x-c[0],p.z-c[1])+Math.hypot(c[0]-walk.x,c[1]-walk.z); if(l<best){ best=l; walk.via=c } } } }
+    if(walk.via){ if(Math.hypot(p.x-walk.via[0],p.z-walk.via[1])<0.8) walk.via=undefined; else { tx=walk.via[0]; tz=walk.via[1] } } }
+  const dx=tx-p.x, dz=tz-p.z, dist=Math.hypot(dx,dz), final=(tx===walk.x&&tz===walk.z);
+  if(final&&dist<walk.reach){ const o=walk.obj; walk=null; tapMark.visible=false; if(o){ const w=o.getWorldPosition(new THREE.Vector3()); camera.lookAt(w.x,1.2,w.z); setTimeout(()=>{ if(S.phase==='play'&&!modal){ target=o; use() } },120) } return }
+  const sp=3.4*dt, st=Math.min(sp,dist); const bx0=p.x, bz0=p.z; p.x+=dx/Math.max(dist,1e-4)*st; p.z+=dz/Math.max(dist,1e-4)*st; bob+=dt*9;
+  LOOK.setFromQuaternion(camera.quaternion); let dy=Math.atan2(-dx,-dz)-LOOK.y; dy=Math.atan2(Math.sin(dy),Math.cos(dy)); LOOK.y+=dy*Math.min(1,dt*7); camera.quaternion.setFromEuler(LOOK);
+  if(walk.p0x===undefined){ walk.p0x=bx0; walk.p0z=bz0; walk.t=0 } walk.t+=dt;
+  if(walk.t>0.8){ if(Math.hypot(p.x-walk.p0x,p.z-walk.p0z)<0.6){ walk=null; tapMark.visible=false } else { walk.p0x=p.x; walk.p0z=p.z; walk.t=0 } }   // gave up: something is in the way
+}
+const k=c=>!!keys[c];
+function movePlayer(dt){
+  if(S.riding){ walk=null; tapMark.visible=false; return }   // riding the cleaning rover: the mission layer drives the camera
+  walkStep(dt);
+  const active=S.phase==='play'&&!modal&&(plc.isLocked||dragMode||DEBUG);
+  if(active){ const f=(k('KeyW')||k('ArrowUp')?1:0)-(k('KeyS')||k('ArrowDown')?1:0), r=(k('KeyD')||k('ArrowRight')?1:0)-(k('KeyA')||k('ArrowLeft')?1:0);
+    if(f||r){const n=Math.hypot(f,r),sp=(k('ShiftLeft')||k('ShiftRight')?5:3)*dt; plc.moveForward(f/n*sp); plc.moveRight(r/n*sp); bob+=dt*9} }
+  if(S.phase==='play'){ const p=camera.position; collide(p); p.y=heightAt(p.x,p.z)*(isInside(p)?0:1)+1.7+Math.sin(bob)*0.03
+    const ds=Math.hypot(p.x-stepLast.x,p.z-stepLast.z); stepLast.x=p.x; stepLast.z=p.z; if(ds<2){ stepAcc+=ds; if(stepAcc>0.85){ stepAcc=0; AUDIO.play('step') } } }
+}
+const stepLast={x:0,z:0}; let stepAcc=0;
+const isInside=p=>p.x>BASE.x-6&&p.x<BASE.x+6&&p.z>BASE.z-4&&p.z<BASE.z+4;
+
+// looking at things
+const ray=new THREE.Raycaster(); ray.far=3.8; const CENTER=new THREE.Vector2(); let target=null;
+const OCC=[];   // walls block what you can reach (no grabbing things through a wall)
+function findTarget(){ camera.updateMatrixWorld(true); ray.setFromCamera(CENTER,camera); const hits=ray.intersectObjects([...INTER,...OCC],true);
+  for(const h of hits){let o=h.object; while(o&&!o.userData.it&&!o.userData.occ) o=o.parent; if(!o) continue; if(o.userData.occ&&!o.userData.it) return null; if(o.visible) return o} return null }
+function hintFor(o){ const it=o.userData.it, held=S.held;
+  if(MISSION){ const h=MISSION.hintFor(it,o); if(h!==undefined) return h }
+  if(it.kind==='rover') return 'Click: check the rover';
+  if(it.kind==='robot') return 'Click: talk to ORBI';
+  if(it.kind==='crate'){ const P=PANELS[it.k], c=W.crates[it.k].count; if(!c) return 'Empty'; if(held) return 'Your hands are full (Q to put back)'; return `${P.name} · click: take a panel` }
+  if(it.kind==='tester') return held&&held.kind==='panel'?`Click: test the ${PANELS[held.k].name}`:'Panel test machine: bring a panel';
+  if(it.kind==='mount') return it.filled?'Installed':(held&&held.kind==='stack'?'Click: install an HDPE panel':'Shield panel spot');
+  return '' }
+function holdPanel(k,kind){ const p=makePanel(k); p.scale.setScalar(0.55); p.position.set(0.32,-0.32,-0.7); p.rotation.set(0.25,-0.5,0.1); camera.add(p);
+  const extra=[]; if(kind==='stack'){ for(let i=1;i<3;i++){const q=makePanel(k);q.position.z=-0.04*i*PANELS[k].thick;p.add(q);extra.push(q)} }
+  S.held={k,kind,obj:p,extra} }
+function clearHeld(){ if(S.held){camera.remove(S.held.obj); S.held=null} }
+function drop(){ if(!S.held||S.held.kind!=='panel') return; const k=S.held.k; clearHeld(); W.crates[k].count++; refreshStack(k); say('Panel put back.','ORBI',2500) }
+function refreshStack(k){ const c=W.crates[k]; c.stack.children.forEach((p,i)=>p.visible=i<c.count) }
+function use(){
+  if(!target) return; const it=target.userData.it; AUDIO.play('click');
+  if(MISSION&&MISSION.onUse(target)) return;   // Sols 2-10: the stations are existing props; the original Day 1 interactions below are untouched
+  if(it.kind==='rover') return roverScreen();
+  if(it.kind==='robot') return robotTalk();
+  // the material challenge (crates, test machine, mounts) opens once the rover has reported the radiation event
+  if(S.act!=='suit'&&(it.kind==='crate'||it.kind==='tester'||it.kind==='mount')) return say(S.act==='explore'?'Let us finish exploring first, Toby!':'Not yet, Toby. Let us follow the story first.','ORBI',3000);
+  if(it.kind==='crate'){ if(S.held) return say('Your hands are full. Press Q to put the panel back.','ORBI',3000); const c=W.crates[it.k]; if(!c.count) return;
+    if(it.k==='hdpe'&&S.tested.hdpe){ c.count=0; refreshStack('hdpe'); holdPanel('hdpe','stack'); S.step=3; objective(); robotPlay('ThumbsUp',true); say('You have 3 HDPE panels. Go outside and install them on the base wall next to the door.'); return }
+    c.count--; refreshStack(it.k); holdPanel(it.k,'panel'); return }
+  if(it.kind==='tester') return testPanel();
+  if(it.kind==='mount') return installPanel(target);
+}
+
+// =====================================================================
+// DAY 1 STORY
+// =====================================================================
+function roverScreen(){
+  if(S.act!=='suit') return say(S.act==='intro'||S.act==='follow'?'The rover is far away in the dust storm. Follow ORBI to the base first.':'The rover will call us soon. Keep exploring!','ORBI',3500);
+  say('The rover is still measuring strong radiation outside.','Rover',3500);
+}
+// The rover's message arrives by radio after the 30-second exploration (no walking out into the storm): it reports the radiation event.
+function roverMessage(){
+  card('Message from the Rover',
+    `<div style="font-size:19px;color:#ff9a7a"><b>Strong radiation event detected.</b></div>The rover's radiation detector shows that radiation outside is rising fast. The base needs radiation protection.<br><span class="muted">This is a different hazard from the dust storm: the dust storm hides the Sun, while the radiation event is made of fast particles from the Sun. It really happened: on 20 May 2024 a solar storm raised the radiation near the Curiosity rover to 8,100 micrograys, about 30 chest X-rays.</span>${NASA.cardHtml()}`,
+    SRC.rover+' · live NASA data below (DONKI, Perseverance, RadLab)','Understood',()=>{ startRadiation() });
+}
+function startRadiation(){
+  S.act='suit'; S.step=2; S.hintAt=T.now; S.radOn=true; S.inside=S.insideBase; meter(); objective();
+  FX.storm.forEach(ps=>setRate(ps,NASA.stormRate()));
+  FX.alarm.emitter.position.set(6,3.2,9); setRate(FX.alarm,2.5);
+  robotPlay('Wave',true); setTimeout(()=>robotPlay('Idle'),1800);
+  say('The radiation level is rising! We need shielding. Go to the equipment area, the crates and the test machine, and find the right material.','ORBI',9000);
+}
+let robotGreeted=false;
+function robotTalk(){
+  robotPlay('Wave',true); setTimeout(()=>robotPlay('Idle'),1800);
+  if(S.act==='follow'||S.act==='emergency') return say('This way, Toby! To the base!');
+  if(S.act==='explore') return say('Look around the base. Something is wrong with the power!');
+  if(S.act==='rover') return say('Wait... the rover is calling us!');
+  if(S.step<=2&&!S.tested.hdpe){ const n=Object.keys(S.tested).length;
+    say(n===0?'Take a panel from the crates and put it on the test machine over there.':n===1?'Try another material. Think about something light.':'The answer is not a metal. Look for something with lots of hydrogen.'); return }
+  if(S.step===3) return say('The wall next to the door, on the outside. Install the 3 panels there.');
+  if(S.step===4) return say('The shield is up and the warning has stopped. Come back inside, Toby!');
+  say('Radiation inside is lower. Good work!');
+}
+let testing=false;
+function testPanel(){
+  if(testing) return; if(!S.held||S.held.kind!=='panel') return say('Take a panel from the crates and put it here.','ORBI',3500);
+  const k=S.held.k, P=PANELS[k]; clearHeld(); testing=true;
+  const onPad=makePanel(k); onPad.rotation.x=-Math.PI/2; onPad.position.copy(W.testPad.position).add(new THREE.Vector3(0,0.42,0)); scene.add(onPad);
+  FX.test.startColor=new ConstantColor(P.good?new QV4(0.55,1,0.7,1):new QV4(1,0.55,0.4,1)); burst(FX.test,40,1.8,onPad.position.clone().add(new THREE.Vector3(0,0.3,0)));
+  S.step=2; objective();
+  setTimeout(()=>{ testing=false; scene.remove(onPad); W.crates[k].count++; refreshStack(k); S.tested[k]=true;
+    const bar=`<div class="bar" style="height:14px"><div class="fill" style="width:${P.power*100}%;background:${P.good?'var(--good)':P.power>0.4?'#e2a845':'var(--bad)'}"></div></div>`;
+    card(`Test result: ${P.name}`,`<div>Protection: <b>${P.level}</b></div>${bar}<div style="margin-top:8px">${P.result}</div>`,P.good?SRC.pe:null,P.good?'Let us install it':'I will try again',()=>{
+      robotPlay(P.good?'ThumbsUp':'No',true); setTimeout(()=>robotPlay('Idle'),2000); say(P.robot);
+      if(P.good) say('HDPE it is! Take the 3 HDPE panels from the crate and install them on the outside wall of the base.');
+    });
+  },1900);
+}
+function installPanel(m){
+  const it=m.userData.it; if(it.filled) return; if(!S.held||S.held.kind!=='stack') return say('You need HDPE panels. They are in the crate inside the base.','ORBI',3500);
+  it.filled=true; S.installed++; m.userData.ghost.visible=false; const p=makePanel('hdpe'); p.scale.setScalar(1.25); m.add(p);
+  burst(FX.install,60,0.5,m.position.clone().add(new THREE.Vector3(0,0,0.3)));
+  const left=3-S.installed; S.held.extra.forEach((q,i)=>q.visible=i<left-1); if(left===0) clearHeld();
+  simSafe(()=>SIM.emit('panel_installed',{n:S.installed})); if(MISSION) MISSION.onShield(S.installed); AUDIO.play('place'); if(S.installed>=3){ AUDIO.geiger(false); setTimeout(()=>AUDIO.play('good'),300) }
+  S.inside=Math.max(0.12,S.insideBase-S.installed*0.26); meter(); objective();
+  const stormBase=NASA.stormRate();   // 40 when there is no NASA data; otherwise scaled by the real CME speed (DONKI)
+  FX.storm.forEach(ps=>setRate(ps,Math.max(12,stormBase-S.installed*9)));
+  if(S.installed<3) say(`Another panel. ${left} to go.`,'ORBI',2500);
+  else { S.step=4; objective();
+    // the radiation warning stops now that the shield is complete (the dust storm is a separate hazard and keeps blowing)
+    FX.storm.forEach(ps=>setRate(ps,0)); setRate(FX.alarm,0); S.hot=false;
+    say('Shield complete! The radiation warning has stopped. Come back inside, Toby!','ORBI',6500) }
+}
+
+// =====================================================================
+// CUTSCENES
+// =====================================================================
+let cut=null;
+function sub(t){ $('sub').textContent=PN(t||'') }
+function camPose(p,l){ camera.position.set(...p); camera.lookAt(...l) }
+function runCut(shots,onEnd){
+  S.phase='cut'; plc.unlock(); walk=null; tapMark.visible=false; for(const id of ['res','ask','arrow']){ const e=$(id); if(e) e.style.display='none' } $('letterbox').style.display='block'; $('skip').style.display='block'; $('cross').style.display='none'; $('hint').style.display='none'; objective(); meter();
+  cut={shots,i:-1,t:0,onEnd}; nextShot();
+}
+function alertFx(on){ $('redflash').style.display=on?'block':'none'; $('sub').style.color=on?'#ff7a66':''; AUDIO.alarm(on) }   // danger = red
+function nextShot(){ const c=cut; c.i++; c.t=0; if(c.i>=c.shots.length) return endCut(); const s=c.shots[c.i]; sub(s.text||''); alertFx(!!s.alert); if(s.start) s.start() }
+function updateCut(dt){ const c=cut; if(!c) return; const s=c.shots[c.i]; c.t+=dt; const k=clamp(c.t/s.dur,0,1), e=smooth(0,1,k);
+  if(s.from&&s.to){ camera.position.lerpVectors(new THREE.Vector3(...s.from[0]),new THREE.Vector3(...s.to[0]),e); camera.lookAt(new THREE.Vector3(...s.from[1]).lerp(new THREE.Vector3(...s.to[1]),e)) }
+  if(s.update) s.update(k,dt); if(k>=1) nextShot() }
+function endCut(){ const c=cut; cut=null; sub(''); alertFx(false); $('letterbox').style.display='none'; $('skip').style.display='none'; if(c&&c.onEnd) c.onEnd() }
+function skipCut(){ if(!cut) return; const c=cut; for(let i=c.i;i<c.shots.length;i++){const s=c.shots[i]; if(i>c.i&&s.start) s.start(); if(s.update) s.update(1,0)} cut=null; sub(''); alertFx(false); $('letterbox').style.display='none'; $('skip').style.display='none'; if(c.onEnd) c.onEnd() }
+$('skip').onclick=skipCut;
+
+// ---- Day 1 story helpers: the dust storm and the radiation event are two separate hazards ----
+let FOG0=null;
+function setDust(on){ S.dust=on; setRate(FX.dust2,on?50:0);
+  if(scene.fog){ if(!FOG0) FOG0={n:scene.fog.near,f:scene.fog.far,c:scene.fog.color.clone()};
+    scene.fog.near=on?5:FOG0.n; scene.fog.far=on?85:FOG0.f; scene.fog.color.set(on?0xb07a5c:FOG0.c) } }
+let shipDamaged=false;
+function damageShip(){ if(shipDamaged) return; shipDamaged=true; W.ship.traverse(o=>{ if(o.isMesh&&o.material&&o.material.color) o.material.color.multiplyScalar(0.42) }) }
+function openingCut(){
+  const shipFrom=new THREE.Vector3(-70,95,-35), shipTo=new THREE.Vector3(-17,heightAt(-17,13)-0.5,13);
+  const rbA=new THREE.Vector3(-4,0,5), rbB=new THREE.Vector3(-12.6,0,10.4);
+  CLK.ms=LANDING; CLK.onMars=true; setDust(true);
+  runCut([
+    {dur:6,text:'After 203 days in space, our ship reaches Mars... but a dust storm hits during the landing!',
+      start:()=>{ AUDIO.play('whoosh'); W.ship.position.copy(shipFrom); W.ship.rotation.set(0,0.6,0.5) },
+      from:[[26,46,62],[-30,34,0]],to:[[-4,22,40],[-17,8,13]],
+      update:k=>{ const e=smooth(0,1,k); W.ship.position.lerpVectors(shipFrom,shipTo,e*e); W.ship.rotation.z=0.5+Math.sin(k*18)*0.12; W.ship.rotation.x=k*0.2;
+        if(k>0.45) damageShip(); if(k>0.3){ FX.debris.emitter.position.set(W.ship.position.x,W.ship.position.y+2,W.ship.position.z); setRate(FX.debris,40+k*70) } }},
+    {dur:5,text:'Toby: "Whoa! That was a hard landing! The spaceship is broken!"',
+      start:()=>{ AUDIO.play('crash'); W.ship.position.copy(shipTo); W.ship.rotation.set(0.12,0.6,0.32); damageShip(); FX.land.emitter.position.set(-17,0.5,13); setRate(FX.land,150); FX.debris.emitter.position.set(-17,12,13); setRate(FX.debris,130); FX.smoke.emitter.position.set(-17,3,13); setRate(FX.smoke,16) },
+      from:[[-6,3,24],[-17,3,13]],to:[[-9,2.4,21],[-17,3.2,13]],
+      update:(k)=>{ if(k>0.25) setRate(FX.land,0); setRate(FX.debris,Math.max(0,130*(1-k*1.1))); const a=(1-k)*0.45; camera.position.x+=(Math.random()-0.5)*a; camera.position.y+=(Math.random()-0.5)*a*0.6 }},
+    {dur:7,text:'ORBI: "Toby! Are you okay? We survived the landing, but the Mars base is in trouble. Come with me!"',
+      start:()=>{ setRate(FX.debris,0); W.robot.position.copy(rbA); W.robot.rotation.y=Math.atan2(rbB.x-rbA.x,rbB.z-rbA.z); W.astro.visible=true; W.astro.position.set(-14.4,heightAt(-14.4,11.6),11.6); W.astro.rotation.y=-0.6; astroPlay('Idle') },
+      from:[[-5,2.4,15],[-11,1.2,10]],to:[[-9.5,2.2,16.3],[-13.2,1.4,11]],
+      update:k=>{ const e=smooth(0,0.7,k); W.robot.position.lerpVectors(rbA,rbB,e); W.robot.rotation.y=Math.atan2(rbB.x-rbA.x,rbB.z-rbA.z)+(k>0.8?Math.PI*0.6:0); robotPlay(k<0.7?(W.robotAct.Running?'Running':'Idle'):'Wave') }},
+    {dur:7,alert:true,text:'ORBI: "Uh-oh! My sensors found a PROBLEM: a RADIATION ALERT! Follow me to the base, quickly!"',
+      start:()=>{ robotPlay('Idle'); FX.alarm.emitter.position.set(-12.6,2.6,10.4); setRate(FX.alarm,2.5); S.hot=true },
+      from:[[-10,2,15],[-13,1.3,11]],to:[[-12,1.9,13],[-6,1.6,7]],update:k=>{ W.robot.rotation.y=Math.PI*0.85+Math.sin(k*10)*0.25 }}
+  ],()=>{ W.astro.visible=false; W.robot.position.set(-10,0,9.4); camPose([-11.6,1.7,10.6],[0,1.6,1]); startPlay() });   // facing the base door
+}
+// The base door is locked (the crash cut its power). ORBI opens it, they go in, the door closes behind them, and ORBI explains the electricity problem.
+function storyCut(onEnd){
+  const d=W.door, rb=W.robot, toby=W.astro; d.locked=true; d.force=0; d.open=0;
+  runCut([
+    {dur:7,alert:true,text:'ORBI: "Oh no, the base door is locked! The crash cut its power. Let me open it by hand!"',
+      start:()=>{ rb.position.set(0.9,0,3.7); rb.rotation.y=Math.PI; robotPlay('Idle'); toby.visible=true; toby.position.set(-1,0,6.4); toby.rotation.y=Math.PI; astroPlay('Idle'); FX.alarm.emitter.position.set(0,3.2,3); setRate(FX.alarm,2.5) },
+      from:[[-3.2,1.9,9.5],[0,1.4,2.6]],to:[[1.6,1.8,8.2],[0,1.4,2.6]],update:k=>{ rb.rotation.y=Math.PI+Math.sin(k*8)*0.3 }},
+    {dur:3.5,text:'*CLUNK* ... The door is open!',
+      start:()=>{ robotPlay('Yes',true) },from:[[1.6,1.8,8.2],[0,1.4,2.6]],to:[[0.6,1.7,6.2],[0,1.3,2.3]],update:k=>{ d.force=1 }},
+    {dur:5,text:'ORBI: "Quick, inside!"',
+      start:()=>{ robotPlay(W.robotAct.Running?'Running':'Idle'); astroPlay('Walk') },from:[[0.6,1.8,7],[0,1.3,1]],to:[[0,1.8,1.8],[0,1.4,-2]],
+      update:k=>{ const e=smooth(0,0.85,k); rb.position.set(lerp(0.9,-0.8,e),0,lerp(3.7,-0.6,e)); rb.rotation.y=Math.PI*0.9; toby.position.set(lerp(-1,0.4,e),0,lerp(6.4,-0.2,e)); toby.rotation.y=Math.PI; d.force=(k>0.7)?0:1 } },
+    {dur:11,alert:true,text:'ORBI: "Toby, we have an ELECTRICITY problem! The crash damaged a power cable. If the power fails, the whole base could shut down, and that would be dangerous for us!"',
+      start:()=>{ robotPlay('Idle'); astroPlay('Idle'); S.flicker=true; FX.alarm.emitter.position.set(0,3.6,-1); setRate(FX.alarm,2.5) },
+      from:[[0.4,1.7,1.6],[-1.2,1.2,-1.4]],to:[[-0.4,1.7,0.6],[-1.2,1.3,-1.4]],update:k=>{ rb.rotation.y=Math.PI*0.5+Math.sin(k*5)*0.2 }},
+    {dur:8,text:'ORBI: "We must find out what is happening outside. Your helmet goes on when we step out. Let\'s explore!"',
+      start:()=>{ robotPlay('Yes',true) },from:[[-0.4,1.7,0.6],[-1.2,1.3,-1.4]],to:[[0.6,1.8,1.6],[-1.2,1.4,-1.4]],update:k=>{ rb.rotation.y=Math.sin(k*7)*1.3 }}
+  ],()=>{ S.robotPath=null; toby.visible=false; rb.position.set(-1.2,0,-1.4); robotPlay('Idle'); d.locked=false; d.force=null; d.open=0; setRate(FX.alarm,0); camPose([-1.0,1.7,0.1],[5,1.2,1]); S.phase='play'; $('cross').style.display='block'; if(onEnd) onEnd() });
+}
+function endingCut(){
+  S.ended=true; S.q=[]; clearHeld(); S.flicker=false;
+  const solEnd=SOL_END, from=CLK.ms;
+  runCut([
+    {dur:7,text:'ORBI: "Excellent, Toby! You solved the challenge and protected our base. You\'re a real astronaut!"',
+      start:()=>{ AUDIO.play('win'); W.astro.visible=true; W.astro.position.set(BASE.x+1.8,heightAt(1.8,BASE.z+5.4),BASE.z+5.4); W.astro.rotation.y=0; astroPlay('Wave');
+        W.robot.position.set(0.2,0,4.9); W.robot.rotation.y=0; robotPlay('ThumbsUp',true) },
+      from:[[-4,2,11.5],[1,1.2,5]],to:[[4,2.4,11.5],[1,1.4,5]],update:k=>{ CLK.ms=lerp(from,solEnd,k*0.3); renderer.toneMappingExposure=lerp(0.5,0.75,k) }},
+    {dur:6,text:'BASE SYSTEMS: Emergency power rerouted, the base lights are back on. (A separate repair: HDPE blocks radiation, it does not make electricity.)',
+      start:()=>{ if(MISSION) MISSION.onPowerRestored() },
+      from:[[4,2.4,11.5],[1,1.4,5]],to:[[-3,2.2,10],[1,1.5,5]],update:k=>{ CLK.ms=lerp(from,solEnd,0.3+0.2*k); renderer.toneMappingExposure=lerp(0.75,1,k) }},
+    {dur:6,text:'MISSION COMPLETE! The radiation warning is over, and the dust storm is fading.',start:()=>{ robotPlay('ThumbsUp'); setDust(false) },
+      from:[[0,26,40],[0,2,-2]],to:[[0,40,60],[0,0,-2]],update:k=>{CLK.ms=lerp(from,solEnd,0.5+0.5*k); renderer.toneMappingExposure=lerp(1,0.45,k)}}
+  ],()=>{ CLK.ms=solEnd; renderer.toneMappingExposure=0.45; finalCard() });
+}
+function finalCard(){
+  S.phase='end'; S.act='done'; drawClocks();
+  if(MISSION){ MISSION.afterSol1(); return }   // the mission layer shows the (short, swipeable) Sol 1 summary
+  const earthH=(CLK.ms-LANDING)/3600e3;
+  $('overlay').innerHTML=`<div class="box"><h1>${MISSION?'✔ SOL 1 COMPLETE':'✔ MISSION COMPLETE'}</h1><div style="font-size:20px">Day 1 of 10 · Hard Landing</div>
+    <div style="margin-top:8px">On Mars, <b>one full day</b> passed. On Earth, <b>${Math.floor(earthH)} h ${Math.floor((earthH%1)*60)} min</b> passed.</div>
+    <div class="muted" style="margin:8px 0">A Mars day is about 39 minutes longer than an Earth day, so 10 days on Mars equal 10 days and 6 hours on Earth. The trip itself took ${TRIP_DAYS} days.</div>
+    <div><b>What we learned today:</b> HDPE (polyethylene) shields from solar radiation better than metals because it contains a lot of hydrogen. The dust storm and the radiation event were two different hazards.</div>
+    ${NASA.finalHtml()}
+    <div class="muted">Day 2: coming soon</div>
+    <button class="btn" id="again">Play again</button></div>`;
+  $('overlay').style.display='flex'; $('again').onclick=()=>location.reload();
+  if(MISSION){ $('again').textContent='Continue to Sol 2'; $('again').onclick=()=>MISSION.afterSol1() }   // the 10-Sol mission continues from here
+}
+
+// =====================================================================
+// FLOW
+// =====================================================================
+function startPlay(){ S.phase='play'; S.act=MISSION?'mission':'follow'; S.step=0; simSafe(()=>{SIM.reset();SIM.start()}); S.insideBase=NASA.radiationBase(); S.inside=S.insideBase; $('cross').style.display='block'; meter(); lock(); robotPlay('Idle');
+  S.robotPath=[[0,5.0]];   // ORBI runs ahead to the (locked) base door and waits there
+  if(MISSION){ MISSION.beginSol1(); return }
+  objective(); say('Follow me, Toby! The base is straight ahead.','ORBI',6000) }
+// helpers the mission layer uses for Sol 1
+function takeShields(){ AUDIO.play('pickup'); clearHeld(); W.crates.hdpe.count=0; refreshStack('hdpe'); holdPanel('hdpe','stack'); S.tested.hdpe=true; robotPlay('ThumbsUp',true) }
+function radiationOn(){ AUDIO.geiger(true); AUDIO.play('rover'); S.radOn=true; S.inside=S.insideBase; meter(); FX.storm.forEach(ps=>setRate(ps,NASA.stormRate())); FX.alarm.emitter.position.set(6,3.2,9); setRate(FX.alarm,2.5) }
+// Used when a saved mission is resumed at Sol 2 or later: rebuild what Sol 1 left in the world (the 3 HDPE panels on the wall)
+function restoreSol1World(){
+  W.mounts.forEach(m=>{ const it=m.userData.it; if(it.filled) return; it.filled=true; m.userData.ghost.visible=false; const p=makePanel('hdpe'); p.scale.setScalar(1.25); m.add(p) });
+  S.installed=3; S.tested={lead:true,alu:true,hdpe:true}; S.step=5; S.ended=true; S.inside=0.12; clearHeld();
+  FX.storm.forEach(ps=>setRate(ps,0)); setRate(FX.alarm,0); CLK.onMars=true; S.phase='play';
+}
+// ORBI walks ahead toward the base and waits if Toby falls behind
+function walkOrbi(dt,p){ const r=W.robot, path=S.robotPath; if(!path||!path.length) return;
+  const [tx,tz]=path[0], dx=tx-r.position.x, dz=tz-r.position.z, d=Math.hypot(dx,dz);
+  if(d<0.15){ path.shift(); if(!path.length) robotPlay('Idle'); return }
+  if(Math.hypot(p.x-r.position.x,p.z-r.position.z)>11){ robotPlay('Idle'); return }
+  robotPlay(W.robotAct.Walking?'Walking':'Idle'); const st=Math.min(2.6*dt,d); r.position.x+=dx/d*st; r.position.z+=dz/d*st; r.rotation.y=Math.atan2(dx,dz) }
+function startEmergency(){
+  S.act='emergency'; objective();
+  if(S.robotPath&&S.robotPath.length){ W.robot.position.set(-1.2,0,-1.4); S.robotPath=null } robotPlay('Idle');
+  S.flicker=true; FX.alarm.emitter.position.set(0,3.6,-1); setRate(FX.alarm,2.5);
+  say('EMERGENCY POWER WARNING: main power is unstable.','⚠ BASE ALERT',4300);
+  S.q.push({at:T.now+4.6,fn:()=>say('ORBI! The lights are getting weaker! What is happening?','Toby',4300)});
+  S.q.push({at:T.now+9,fn:()=>{ robotPlay('Wave',true); setTimeout(()=>robotPlay('Idle'),1800); say('Let us explore the base and find out what is wrong!','ORBI',5000); startExplore() }});
+}
+function startExplore(){ S.act='explore'; S.exploreEnd=T.now+EXPLORE_SECONDS; S.lastSec=-1; objective() }
+function exploreDone(){ S.act='rover'; S.lastSec=-1; setRate(FX.alarm,0); objective();
+  say('Time is up! Let us contact the rover. It may know what is going on.','ORBI',4500);
+  S.q.push({at:T.now+4.2,fn:roverMessage}) }
+function updateStory(dt){
+  while(S.q.length&&S.q[0].at<=T.now) S.q.shift().fn();
+  const p=camera.position;
+  if(S.act==='follow'){ walkOrbi(dt,p); if(isInside(p)) startEmergency() }
+  if(S.act==='explore'){ const left=S.exploreEnd-T.now; const sec=Math.ceil(left); if(sec!==S.lastSec){ S.lastSec=sec; objective() } if(left<=0) exploreDone() }
+}
+// the power emergency: the base lights flicker and dim (exposure of the HDRI lighting) while you are inside. Scripted story effect only.
+// the base door: slides sideways; locked until the story unlocks it, then it opens when you walk up to it from either side
+function updateDoor(dt){ const d=W.door; if(!d) return; let want=0;
+  if(d.force!==null) want=d.force; else if(!d.locked&&S.phase==='play'){ const p=camera.position; if(Math.hypot(p.x,p.z-2.3)<2.3) want=1 }
+  const was=d.open; d.open+=(want-d.open)*Math.min(1,dt*4); if(Math.abs(want-d.open)<0.01) d.open=want; d.leaf.position.x=d.open*2.3; d.box.off=d.open>0.55;
+  if(want===1&&was<0.04&&d.open>=0.04) AUDIO.play('doorOpen'); if(want===0&&was>0.96&&d.open<=0.96) AUDIO.play('doorClose') }
+function applyLights(){ if(!S.flicker){ if(S.lightMul!==undefined&&S.phase==='play') renderer.toneMappingExposure=S.lightMul; return }   // Sols 2-10: the lights dim when the battery runs low
+  const n=Math.abs(Math.sin(T.now*7.3)*Math.sin(T.now*17.1)); let v=0.4+0.3*n; if(Math.sin(T.now*2.9)>0.82) v*=0.35;
+  if(S.phase!=='cut'&&(S.act==='suit'||S.act==='mission'||S.step>=2)) v=0.7+0.06*n;   // after the exploration the lights stay dim but steady, so the material challenge stays easy to see
+  renderer.toneMappingExposure=isInside(camera.position)?v:0.85 }
+function checkTriggers(){
+  const p=camera.position, inside=isInside(p);
+  if(S.step===4&&inside&&!S.ended) endingCut();
+  // the robot turns to face you when you're inside (not while it is leading the way)
+  if(inside&&W.robot&&S.act!=='follow'){ const want=Math.atan2(p.x-W.robot.position.x,p.z-W.robot.position.z); let d=want-W.robot.rotation.y; d=Math.atan2(Math.sin(d),Math.cos(d)); W.robot.rotation.y+=d*0.05 }
+  // a gentle hint if you're stuck
+  if(S.act==='suit'&&S.step===2&&T.now-S.hintAt>45&&!S.tested.hdpe){ S.hintAt=T.now; robotTalk() }
+}
+
+// =====================================================================
+// LOOP
+// =====================================================================
+const clock=new THREE.Clock(); let clockT=0;
+function loop(){
+  const dt=Math.min(DEBUG?0.5:0.05,clock.getDelta()); T.now+=dt;
+  if(S.phase==='cut') updateCut(dt);
+  movePlayer(dt);
+  if(S.phase==='play'){ CLK.ms=Math.min(CLK.ms+dt*TIME_SCALE*1000,(MISSION&&MISSION.active())?MISSION.capMs():PLAY_CAP); target=findTarget(); const h=target?hintFor(target):''; $('hint').textContent=h; $('hint').style.display=h?'block':'none'; $('cross').className=target?'on':''; updateStory(dt); checkTriggers(); if(MISSION) MISSION.update(dt); simSafe(()=>SIM.tick(dt,{solarPanels:W.solar.filter(p=>p.visible&&p.parent).length})) }
+  for(const b of bursts) if(T.now>=b.until){setRate(b.ps,0);b.done=true} bursts=bursts.filter(b=>!b.done);
+  if(W.robotMixer) W.robotMixer.update(dt); if(W.astroMixer) W.astroMixer.update(dt);
+  if(S.dust&&FX.dust2) FX.dust2.emitter.position.set(camera.position.x,1.2,camera.position.z);   // the dust storm surrounds the camera
+  applyLights(); updateDoor(dt);
+  AUDIO.env(!isInside(camera.position)); AUDIO.mood(S.hot?'tense':(S.phase==='end'?'win':'calm'));
+  batch.update(dt);
+  if((clockT+=dt)>0.25){clockT=0; drawClocks()}
+  renderer.render(scene,camera); requestAnimationFrame(loop);
+}
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+
+// =====================================================================
+// BOOT
+// =====================================================================
+(async()=>{
+  try{
+    NASA.injectUI(); NASA.init();   // starts loading NASA data in the background; the game never waits for it
+    camPose([30,70,80],[-30,40,0]); loop();
+    await Promise.all([loadLighting(),loadParticleTextures()]);
+    await buildWorld();
+    FX.storm.forEach(ps=>setRate(ps,0)); setRate(FX.alarm,0); drawClocks();
+    try{ AUDIO=(await import('./audio.js')).createAudio(); }catch(e){ console.warn('[audio] not loaded, the game is silent:',e); AUDIO=NOSND }
+    const snd=document.createElement('button'); snd.id='snd'; snd.textContent=(AUDIO.muted?'🔇':'🔊')+' Sound (M)'; document.body.appendChild(snd);
+    const toggleSnd=()=>{ AUDIO.unlock(); const m=AUDIO.toggleMute(); snd.textContent=(m?'🔇':'🔊')+' Sound (M)' }; snd.onclick=toggleSnd;
+    addEventListener('keydown',e=>{ if(e.code==='KeyM'&&!e.repeat) toggleSnd() });
+    try{
+      const mu=await import('./mission-ui.js');
+      MISSION=mu.createMission({THREE,scene,camera,W,S,T,CLK,$,say,isInside,heightAt,renderer,interactive,robotPlay,drawClocks,setDust,
+        LANDING,SOL_MS,SOL_END,lmst,
+        setModal:v=>{ modal=v; if(v) plc.unlock(); else lock() }, modal:()=>modal, lockPointer:()=>lock(),
+        burst:(k,obj)=>burst(FX.install,60,0.4,obj.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,1.2,0))),
+        restoreSol1World,storyCut,takeShields,radiationOn,installMount:m=>installPanel(m),nasaCard:()=>NASA.cardShort(),nasaFinal:()=>NASA.finalShort(),walkOrbi,
+        sfx:(n,a)=>AUDIO.play(n,a),audio:()=>AUDIO,setLight:v=>{ S.lightMul=v },drip:on=>{ setRate(FX.drip,on?14:0); AUDIO.drip(on) }});
+      MISSION.setup();
+    }catch(e){ console.warn('[mission] not loaded, Day 1 only:',e); MISSION=null }
+    let introOn=!/[?&]nointro/.test(location.search);   // the CANTRIC cinematic intro (intro.js) replaces the start box; add ?nointro to the URL for the classic start screen (used by the test drivers)
+    if(introOn){ try{ const im=await import('./intro.js'); $('overlay').style.display='none';
+      im.startIntro({audio:AUDIO,hasSave:!!(MISSION&&MISSION.hasSave()),onDone:r=>{ if(S.phase!=='loading') return; AUDIO.unlock(); if(r.mode==='continue'&&MISSION) MISSION.continueGame(); else { if(MISSION) MISSION.reset(); openingCut() } }});
+    }catch(e){ console.warn('[intro] not loaded, classic start screen',e); introOn=false } }
+    if(!introOn){
+    $('overlay').innerHTML=`<div class="box"><h1>10 Days on Mars</h1><div style="font-size:20px">Day 1: Hard Landing</div>
+      <div class="muted" style="margin:10px 0"><b>Tap or click the floor</b> to walk there · <b>tap a glowing thing</b> to use it · drag to look around · <kbd>H</kbd> ask ORBI for help · <kbd>Space</kbd> skip a cutscene<br>(keyboard works too: <kbd>W A S D</kbd>, <kbd>E</kbd>)</div>
+      <button class="btn" id="go">${MISSION&&MISSION.hasSave()?'New mission':'Start'}</button>${MISSION&&MISSION.hasSave()?' <button class="btn alt" id="cont">Continue saved mission</button>':''}</div>`;
+    $('go').onclick=()=>{ if(S.phase!=='loading') return; AUDIO.unlock(); AUDIO.play('ui'); $('go').blur(); if(MISSION) MISSION.reset(); $('overlay').style.display='none'; openingCut() };
+    if($('cont')) $('cont').onclick=()=>{ if(S.phase!=='loading') return; AUDIO.unlock(); AUDIO.play('ui'); $('cont').blur(); $('overlay').style.display='none'; MISSION.continueGame() };   // guard: Space (skip) must not re-trigger the focused Start button
+    }
+    window.__M={get mission(){return MISSION},get audio(){return AUDIO},get SIM(){return SIM},simState:()=>({dead:simDead}),renderer,scene,S,W,T,CLK,camera,use,findTarget:()=>{target=findTarget();return target&&target.userData.it},skipCut,
+      tp(x,z,lx,ly,lz,y=1.7){camera.position.set(x,y,z);camera.lookAt(lx,ly,lz)},
+      async snap(name){renderer.render(scene,camera);const b=await new Promise(r=>renderer.domElement.toBlob(r,'image/jpeg',0.8));return (await fetch('/save/shot_'+name+'.jpg',{method:'POST',body:b})).status}};
+  }catch(e){ console.error(e); $('overlay').innerHTML=`<div class="box"><h1>Something went wrong</h1><div class="muted">${e.message}</div></div>` }
+})();
+</script>
+</body>
+</html>

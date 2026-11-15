@@ -1,0 +1,12 @@
+ASSETS WERE REBUILT (14 Nov 2026). This file used to list the missing files.
+الأصول اتعاد بناؤها. الملف ده كان قايمة الناقص.
+
+What is in assets/ now:
+  hdri/       the_sky_is_on_fire_1k.hdr, qwantani_dusk_2_puresky_1k.hdr        Poly Haven (CC0)
+  particles/  8 PNG files                                                      Kenney Particle Pack (CC0)
+  models/     astronaut, rover, spaceship, base_large, solar_panel, rocks, rock_large   Quaternius Ultimate Space Kit (CC0)
+              scifi_kit.glb  (26 pieces)                                       Quaternius Ultimate Modular Sci-Fi, Feb 2021 (CC0)
+              robot.glb                                                        three.js RobotExpressive (CC0), replaces the original robot
+  terrain/    jezero_height.bin, jezero_ortho.jpg                              USGS HiRISE DTM + orthoimage, Mars 2020 landing site (NASA/JPL/Univ. of Arizona)
+
+If you find the ORIGINAL assets folder, you can copy it over this one. The game uses the same file names.
